@@ -49,7 +49,7 @@ from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIPro
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
 from pipecat.services.google.stt import GoogleSTTService
-from pipecat.services.google.tts import GoogleTTSService
+from pipecat.services.google.tts import GeminiTTSService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.transports.daily.transport import DailyParams
@@ -80,14 +80,13 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         location="us",
     )
 
-    tts = GoogleTTSService(
-        voice_id="bn-IN-Chirp3-HD-Kore",
-        params=GoogleTTSService.InputParams(
-            language=Language.BN,
-            speaking_rate=1.1,  # Slightly faster speech for better perceived responsiveness
-        ),
+    tts = GeminiTTSService(
+        model="gemini-2.5-flash-tts",
+        voice_id="Kore",  # One of 30 available Gemini TTS voices
+        language_code="bn-BD",  # Bangladeshi Bangla
         credentials=credentials_json,
-        sample_rate=24000,  # Higher quality audio
+        prompt="Speak naturally and conversationally in Bangladeshi Bangla with a friendly tone.",
+        sample_rate=24000,  # High quality audio (Gemini default is 24kHz)
     )
 
     llm = OpenAILLMService(
