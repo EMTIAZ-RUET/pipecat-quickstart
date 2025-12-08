@@ -10,9 +10,9 @@ The example runs a simple voice AI bot that you can connect to using your
 browser and speak with it. You can also deploy this bot to Pipecat Cloud.
 
 Required AI services:
-- Deepgram (Speech-to-Text)
-- OpenAI (LLM)
-- Cartesia (Text-to-Speech)
+- Google Cloud (Speech-to-Text)
+- Google Gemini (LLM)
+- Google Cloud (Text-to-Speech)
 
 Run the bot using::
 
@@ -48,11 +48,12 @@ from pipecat.processors.aggregators.llm_response_universal import LLMContextAggr
 from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
-from pipecat.services.cartesia.tts import CartesiaTTSService
-from pipecat.services.deepgram.stt import DeepgramSTTService
+from pipecat.services.google.stt import GoogleSTTService
+from pipecat.services.google.tts import GoogleTTSService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.transports.daily.transport import DailyParams
+from pipecat.transcriptions.language import Language
 
 logger.info("✅ All components loaded successfully!")
 
@@ -62,19 +63,32 @@ load_dotenv(override=True)
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     logger.info(f"Starting bot")
 
-    stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY"))
+    # Read Google Cloud credentials from JSON file
+    credentials_path = os.getenv("GOOGLE_TEST_CREDENTIALS")
+    with open(credentials_path, "r") as f:
+        credentials_json = f.read()
 
-    tts = CartesiaTTSService(
-        api_key=os.getenv("CARTESIA_API_KEY"),
-        voice_id="71a7ad14-091c-4e8e-a314-022ece01c121",  # British Reading Lady
+    stt = GoogleSTTService(
+        params=GoogleSTTService.InputParams(languages=Language.BN, model="chirp_3"),
+        credentials=credentials_json,
+        location="us",
     )
 
-    llm = OpenAILLMService(api_key=os.getenv("OPENAI_API_KEY"))
+    tts = GoogleTTSService(
+        voice_id="bn-IN-Chirp3-HD-Kore",
+        params=GoogleTTSService.InputParams(language=Language.BN),
+        credentials=credentials_json,
+    )
+
+    llm = OpenAILLMService(
+        api_key=os.getenv("OPENAI_API_KEY"),
+        model="gpt-4o-mini",
+    )
 
     messages = [
         {
             "role": "system",
-            "content": "You are a friendly AI assistant. Respond naturally and keep your answers conversational.",
+            "content": "You are a friendly AI assistant. Respond naturally and keep your answers conversational. Always respond in Bangla (Bengali) language.",
         },
     ]
 
@@ -109,7 +123,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     async def on_client_connected(transport, client):
         logger.info(f"Client connected")
         # Kick off the conversation.
-        messages.append({"role": "system", "content": "Say hello and briefly introduce yourself."})
+        messages.append({"role": "system", "content": "Say hello and briefly introduce yourself in Bangla."})
         await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_disconnected")
