@@ -69,15 +69,25 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         credentials_json = f.read()
 
     stt = GoogleSTTService(
-        params=GoogleSTTService.InputParams(languages=Language.BN, model="chirp_3"),
+        params=GoogleSTTService.InputParams(
+            languages=Language.BN,
+            model="chirp_3",
+            enable_automatic_punctuation=True,
+            enable_interim_results=True,  # Get partial results for faster response
+            enable_voice_activity_events=True,  # Faster end-of-speech detection
+        ),
         credentials=credentials_json,
         location="us",
     )
 
     tts = GoogleTTSService(
         voice_id="bn-IN-Chirp3-HD-Kore",
-        params=GoogleTTSService.InputParams(language=Language.BN),
+        params=GoogleTTSService.InputParams(
+            language=Language.BN,
+            speaking_rate=1.1,  # Slightly faster speech for better perceived responsiveness
+        ),
         credentials=credentials_json,
+        sample_rate=24000,  # Higher quality audio
     )
 
     llm = OpenAILLMService(
@@ -143,13 +153,25 @@ async def bot(runner_args: RunnerArguments):
         "daily": lambda: DailyParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
-            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
+            vad_analyzer=SileroVADAnalyzer(
+                params=VADParams(
+                    stop_secs=0.3,  # Reduced from 0.2 for more natural pauses
+                    start_secs=0.1,  # Faster speech detection
+                    confidence=0.6,  # Lower threshold for faster detection
+                )
+            ),
             turn_analyzer=LocalSmartTurnAnalyzerV3(),
         ),
         "webrtc": lambda: TransportParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
-            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
+            vad_analyzer=SileroVADAnalyzer(
+                params=VADParams(
+                    stop_secs=0.3,  # Reduced from 0.2 for more natural pauses
+                    start_secs=0.1,  # Faster speech detection
+                    confidence=0.6,  # Lower threshold for faster detection
+                )
+            ),
             turn_analyzer=LocalSmartTurnAnalyzerV3(),
         ),
     }
