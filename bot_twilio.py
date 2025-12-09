@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from loguru import logger
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
+from pipecat.frames.frames import TTSSpeakFrame, LLMFullResponseEndFrame, OutputAudioRawFrame, BotStartedSpeakingFrame, BotStoppedSpeakingFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -29,6 +30,9 @@ from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketTransport,
 )
 from pipecat.transcriptions.language import Language
+from google.cloud import texttospeech
+import json
+import asyncio
 
 load_dotenv(override=True)
 
@@ -40,6 +44,47 @@ logger.add(sys.stderr, level="DEBUG")
 credentials_path = os.getenv("GOOGLE_TEST_CREDENTIALS")
 with open(credentials_path, "r") as f:
     credentials_json = f.read()
+
+
+def precompute_greeting_audio(text: str, credentials_json: str) -> bytes:
+    """Precompute greeting audio using Google Gemini TTS synchronously.
+
+    Returns raw PCM audio bytes at 8kHz mono for Twilio.
+    """
+    logger.info(f"Precomputing greeting audio for: {text}")
+
+    # Parse credentials
+    credentials_dict = json.loads(credentials_json)
+
+    # Create TTS client
+    client = texttospeech.TextToSpeechClient.from_service_account_info(credentials_dict)
+
+    # Configure synthesis input
+    synthesis_input = texttospeech.SynthesisInput(text=text)
+
+    # Configure voice (Bangladeshi Bangla)
+    # Let Google select the best available voice for bn-BD
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="bn-BD"
+        # Don't specify name - let Google pick available voice
+    )
+
+    # Configure audio (8kHz for Twilio, LINEAR16 PCM)
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.LINEAR16,
+        sample_rate_hertz=8000,  # Twilio's sample rate
+        speaking_rate=1.0
+    )
+
+    # Perform TTS synthesis
+    response = client.synthesize_speech(
+        input=synthesis_input,
+        voice=voice,
+        audio_config=audio_config
+    )
+
+    logger.info(f"Precomputed audio size: {len(response.audio_content)} bytes")
+    return response.audio_content
 
 
 async def run_bot(transport: BaseTransport, handle_sigint: bool):
@@ -68,6 +113,10 @@ async def run_bot(transport: BaseTransport, handle_sigint: bool):
         prompt="Speak naturally and conversationally in Bangladeshi Bangla with a friendly, warm tone.",
         sample_rate=24000,  # Gemini's native sample rate
     )
+
+    # Precompute greeting audio to avoid delay
+    greeting_text = "আসসালামু আলাইকুম! আমি একটি এআই সহকারী। আপনাকে কীভাবে সাহায্য করতে পারি?"
+    precomputed_greeting = precompute_greeting_audio(greeting_text, credentials_json)
 
     # OpenAI LLM for conversation
     llm = OpenAILLMService(
@@ -116,7 +165,15 @@ async def run_bot(transport: BaseTransport, handle_sigint: bool):
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, client):
         logger.info("Starting outbound call conversation in Bangla")
-        # Wait for the user to speak first
+        # Play precomputed greeting audio immediately
+        # Signal bot started speaking to prevent interruptions
+        await task.queue_frames([
+            BotStartedSpeakingFrame(),
+            OutputAudioRawFrame(audio=precomputed_greeting, sample_rate=8000, num_channels=1),
+            BotStoppedSpeakingFrame(),
+            LLMFullResponseEndFrame()
+        ])
+        logger.info("Precomputed greeting sent")
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
