@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from loguru import logger
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
-from pipecat.frames.frames import TTSSpeakFrame, LLMFullResponseEndFrame, OutputAudioRawFrame, BotStartedSpeakingFrame, BotStoppedSpeakingFrame
+from pipecat.frames.frames import TTSSpeakFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -114,9 +114,9 @@ async def run_bot(transport: BaseTransport, handle_sigint: bool):
         sample_rate=24000,  # Gemini's native sample rate
     )
 
-    # Precompute greeting audio to avoid delay
+    # Static greeting text
     greeting_text = "আসসালামু আলাইকুম! আমি একটি এআই সহকারী। আপনাকে কীভাবে সাহায্য করতে পারি?"
-    precomputed_greeting = precompute_greeting_audio(greeting_text, credentials_json)
+    # Note: Using TTSSpeakFrame through pipeline for immediate greeting
 
     # OpenAI LLM for conversation
     llm = OpenAILLMService(
@@ -165,15 +165,13 @@ async def run_bot(transport: BaseTransport, handle_sigint: bool):
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, client):
         logger.info("Starting outbound call conversation in Bangla")
-        # Play precomputed greeting audio immediately
-        # Signal bot started speaking to prevent interruptions
-        await task.queue_frames([
-            BotStartedSpeakingFrame(),
-            OutputAudioRawFrame(audio=precomputed_greeting, sample_rate=8000, num_channels=1),
-            BotStoppedSpeakingFrame(),
-            LLMFullResponseEndFrame()
-        ])
-        logger.info("Precomputed greeting sent")
+        # Wait a moment for pipeline to be ready
+        await asyncio.sleep(0.1)
+
+        # Use TTSSpeakFrame to play greeting through normal pipeline
+        # This ensures proper timing and no StartFrame issues
+        await task.queue_frame(TTSSpeakFrame(text=greeting_text))
+        logger.info("Greeting queued for TTS")
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
