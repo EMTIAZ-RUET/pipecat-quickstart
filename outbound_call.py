@@ -69,13 +69,27 @@ def make_outbound_call(to_number: str, server_url: str):
 
 
 if __name__ == "__main__":
+    import sys
+
     # Get target phone number from environment or use default
     target_number = os.getenv("TARGET_PHONE_NUMBER", "+8801765786548")
 
-    # IMPORTANT: Replace this with your actual server URL
-    # For local development, you can use ngrok: https://ngrok.com
-    # Example: "wss://your-subdomain.ngrok.io"
-    server_url = input("Enter your server WebSocket URL (e.g., wss://your-server.ngrok.io): ").strip()
+    # Check if server URL is provided as command line argument
+    if len(sys.argv) > 1:
+        server_url = sys.argv[1]
+    else:
+        # Auto-detect ngrok URL if available
+        try:
+            import requests
+            response = requests.get("http://localhost:4040/api/tunnels", timeout=2)
+            tunnels = response.json()
+            if tunnels.get("tunnels"):
+                server_url = tunnels["tunnels"][0]["public_url"]
+                logger.info(f"Auto-detected ngrok URL: {server_url}")
+            else:
+                server_url = input("Enter your server WebSocket URL (e.g., https://your-server.ngrok.io): ").strip()
+        except Exception:
+            server_url = input("Enter your server WebSocket URL (e.g., https://your-server.ngrok.io): ").strip()
 
     if not server_url:
         logger.error("Server URL is required!")
@@ -86,5 +100,7 @@ if __name__ == "__main__":
 
     if call:
         logger.info("Call in progress. Check your phone!")
+        logger.info(f"Target number: {target_number}")
+        logger.info("The call should ring shortly. If answered, you'll be connected to the Bangla voice bot.")
     else:
         logger.error("Failed to initiate call.")
