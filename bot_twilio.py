@@ -119,9 +119,14 @@ async def run_bot(transport: BaseTransport, handle_sigint: bool):
     # Note: Using TTSSpeakFrame through pipeline for immediate greeting
 
     # OpenAI LLM for conversation
+    # Use max_tokens to force shorter responses for faster TTS
     llm = OpenAILLMService(
         api_key=os.getenv("OPENAI_API_KEY"),
         model="gpt-4o-mini",
+        params=OpenAILLMService.InputParams(
+            max_tokens=60,  # Limit to ~40-50 words in Bangla for faster voice responses
+            temperature=0.7,
+        ),
     )
 
     messages = [
@@ -162,8 +167,16 @@ async def run_bot(transport: BaseTransport, handle_sigint: bool):
 
                 "Closing: শেষে নরম কিন্তু দৃঢ় টোনে প্রস্তাব দেবে – 'স্যার চাইলে এখনই ছোট দুইটা ধাপ নেয়া যায় – আপনি নাম আর WhatsApp বা email দিলে আমি আপনার জন্য হিসাব করে লিখিত details আর আনুমানিক premium পাঠিয়ে দেই'।\n\n"
 
-                "মনে রাখবে: সব কথায় সর্বোচ্চ sincere থাকবে, কখনও রূঢ় হবে না, আর প্রতিটি সংখ্যাকে সর্বদা বাংলায় শব্দে পড়বে, digit by digit কখনও নয়। "
-                "Your responses will be spoken aloud, so keep them conversational and natural. Start the call by introducing yourself as an insurance advisor."
+                "মনে রাখবে: সব কথায় সর্বোচ্চ sincere থাকবে, কখনও রূঢ় হবে না, আর প্রতিটি সংখ্যাকে সর্বদা বাংলায় শব্দে পড়বে, digit by digit কখনও নয়।\n\n"
+
+                "CRITICAL RESPONSE LENGTH RULE (অত্যন্ত গুরুত্বপূর্ণ): এটি একটি PHONE CALL যেখানে real-time voice conversation হচ্ছে। "
+                "প্রতিটি response অবশ্যই অত্যন্ত ছোট রাখতে হবে - maximum ১-২ বাক্য (২০-৪০ শব্দের বেশি নয়)। "
+                "কখনও এক turn এ লম্বা ব্যাখ্যা দেবে না। তথ্যগুলো ছোট ছোট conversational chunks এ ভাগ করে দেবে। "
+                "উদাহরণ: 'শুভদিন স্যার, আমি [নাম], ঢাকা-ভিত্তিক বীমা কোম্পানির অ্যাডভাইজার...' এভাবে লম্বা করার বদলে, "
+                "শুধু বলবে 'ধন্যবাদ স্যার। আমি লাইফ আর হেলথ ইনসুরেন্স নিয়ে কল করেছি। দুই মিনিট সময় দিতে পারবেন?'। "
+                "ছোট responses conversation কে natural এবং দ্রুত করে। সবসময় brevity prefer করবে।\n\n"
+
+                "Your responses will be spoken aloud in real-time. ALWAYS keep responses SHORT (max 1-2 sentences). Never explain everything at once. Break information into small chunks."
             ),
         },
     ]
