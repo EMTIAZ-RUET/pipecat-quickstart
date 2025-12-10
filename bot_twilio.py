@@ -23,7 +23,7 @@ from pipecat.runner.utils import parse_telephony_websocket
 from pipecat.serializers.twilio import TwilioFrameSerializer
 from pipecat.services.google.stt import GoogleSTTService
 from pipecat.services.google.tts import GeminiTTSService
-from pipecat.services.openai.llm import OpenAILLMService
+from pipecat.services.groq.llm import GroqLLMService
 from pipecat.transports.base_transport import BaseTransport
 from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
@@ -118,13 +118,13 @@ async def run_bot(transport: BaseTransport, handle_sigint: bool):
     greeting_text = "আসসালামু আলাইকুম স্যার! আমি আপনার বীমা উপদেষ্টা। আপনার এক থেকে দুই মিনিট সময় নিতে পারি?"
     # Note: Using TTSSpeakFrame through pipeline for immediate greeting
 
-    # OpenAI LLM for conversation
-    llm = OpenAILLMService(
-        api_key=os.getenv("OPENAI_API_KEY"),
-        model="gpt-4o-mini",
-        params=OpenAILLMService.InputParams(
+    # Groq LLM for ultra-fast conversation (3-5x faster than OpenAI)
+    llm = GroqLLMService(
+        api_key=os.getenv("GROQ_API_KEY"),
+        model="llama-3.3-70b-versatile",  # Recommended replacement for mixtral (280 tokens/sec)
+        params=GroqLLMService.InputParams(
             max_tokens=256,  # Limit response length for faster speech
-            temperature=0.7,
+            temperature=0.5,  # Lower for faster, more deterministic responses
         ),
     )
 
