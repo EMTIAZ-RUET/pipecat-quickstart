@@ -106,12 +106,12 @@ async def run_bot(transport: BaseTransport, handle_sigint: bool):
     # Gemini TTS for Bangla speech synthesis
     # Note: Gemini natively outputs at 24kHz, pipeline will resample to 8kHz
     tts = GeminiTTSService(
-        model="gemini-2.5-flash-tts",
+        model="gemini-2.5-flash-tts",  # Fastest Gemini TTS model
         voice_id="Kore",
         language_code="bn-BD",
         credentials=credentials_json,
-        prompt="Speak naturally and conversationally in Bangladeshi Bangla with a friendly, warm tone.",
-        sample_rate=24000,  # Gemini's native sample rate
+        sample_rate=24000,  # Gemini's native sample rate (fixed)
+        # Keep default aggregation to avoid character-by-character synthesis
     )
 
     # Insurance advisor greeting
